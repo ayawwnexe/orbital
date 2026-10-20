@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#03040a">
+<title>ORBITAL — Solar System Explorer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+:root{--bg:#03040a;--ink:#f0efff;--muted:#9996b0;--violet:#b9a2ff;--line:#b9a2ff2c;--panel:#090914}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Space Mono",monospace;overflow-x:hidden}
+button{font:inherit;color:inherit}
+#intro{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at center,#161329 0,#05050b 55%,#020207 100%);transition:opacity .8s,visibility .8s}
+#intro.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.intro-card{width:min(650px,100%);text-align:center}
+.kicker{font-size:11px;letter-spacing:.35em;color:var(--violet);text-transform:uppercase}
+.intro-card h1{font:500 clamp(38px,9vw,76px)/1 Orbitron,sans-serif;letter-spacing:.12em;margin:24px 0}
+.intro-card p{color:#c2bfd3;line-height:1.8;font-size:13px}
+.intro-actions{display:flex;gap:12px;justify-content:center;margin-top:28px}
+.action{border:1px solid #b9a2ff70;background:#151123;padding:14px 26px;letter-spacing:.18em;font-size:11px;cursor:pointer}
+.action.primary{background:#c5b1ff;color:#100c1b;border-color:#c5b1ff}
+.action:hover{filter:brightness(1.15)}
+#site{opacity:0;transition:opacity .8s}
+#site.ready{opacity:1}
+header{height:66px;position:relative;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(18px,3vw,44px);border-bottom:1px solid #ffffff15;background:#05050ad9}
+.logo{font:600 22px Orbitron,sans-serif;letter-spacing:.18em}.logo span{color:var(--violet)}
+.status{font-size:10px;letter-spacing:.2em;color:#b8b4ca}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#70ffc0;box-shadow:0 0 16px #70ffc0;margin-right:9px}
+#hero{position:relative;min-height:calc(100svh - 66px);height:calc(100svh - 66px);min-height:560px;display:flex;flex-direction:column;overflow:hidden;background:radial-gradient(ellipse at 50% 53%,#111020 0%,#060610 45%,#020309 100%)}
+#starfield{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#hero-heading{position:absolute;z-index:3;left:clamp(18px,3vw,44px);top:24px;pointer-events:none}
+#hero-heading .kicker{font-size:10px}
+#hero-heading h2{font:500 clamp(19px,3vw,32px)/1.2 Orbitron,sans-serif;letter-spacing:.07em;margin:10px 0 8px}
+#hero-heading p{margin:0;color:#a7a3ba;font-size:11px;line-height:1.7;max-width:330px}
+#system-stage{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;touch-action:pan-y}
+#system-viewport{position:relative;width:min(100vmin,calc(100svh - 90px));height:min(100vmin,calc(100svh - 90px));max-width:100%;max-height:100%;flex:none;transform:translateY(12px) scale(var(--view-zoom,1));transform-origin:center;transition:transform .12s ease-out;will-change:transform}
+#system{position:absolute;width:1000px;height:1000px;left:50%;top:50%;transform:translate(-50%,-50%) scale(var(--sys-scale,.65));transform-origin:center;overflow:visible;will-change:transform}
+.orbit{position:absolute;border:1px solid #aaa5c51e;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
+#sun{position:absolute;left:500px;top:500px;width:92px;height:92px;transform:translate(-50%,-50%);border:0;background:transparent;border-radius:50%;padding:0;cursor:pointer;z-index:4;display:grid;place-items:center}
+.sun-glow{position:absolute;inset:-22px;border-radius:50%;background:radial-gradient(circle,#ffc76d40 0,transparent 70%);animation:pulse 3.5s ease-in-out infinite}
+.sun-core{position:relative;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff8c6 0,#ffe995 15%,#ffb347 48%,#ff6d32 78%,#e94129 100%);box-shadow:0 0 20px #ffb34c99,0 0 55px #ff8d3a4a}
+.sun-label{position:absolute;top:73px;font-size:13px;letter-spacing:.25em;color:#f5dfb4}
+@keyframes pulse{50%{transform:scale(1.15);opacity:.7}}
+.orbit-body{position:absolute;left:500px;top:500px;width:0;height:0;z-index:3;animation:orbit linear infinite;animation-delay:var(--delay,0s)}
+@keyframes orbit{from{transform:rotate(var(--start,0deg))}to{transform:rotate(calc(var(--start,0deg) + 360deg))}}
+.planet-button{position:absolute;left:var(--radius);top:0;transform:translate(-50%,-50%);width:76px;height:76px;padding:0;border:0;background:transparent;cursor:pointer;display:grid;place-items:center;border-radius:50%;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.planet-button:focus-visible{outline:2px solid white;outline-offset:2px}
+.planet{position:relative;width:var(--size);height:var(--size);border-radius:50%;display:block;box-shadow:inset -5px -4px 8px #0008,0 0 12px var(--glow,#ffffff22);pointer-events:none}
+.planet-label{position:absolute;left:50%;top:calc(50% + var(--label-gap,18px));transform:translate(-50%,0);font:10px "Space Mono",monospace;letter-spacing:.08em;white-space:nowrap;color:#d4d0e7;text-shadow:0 2px 4px #000,0 0 8px #000}
+.mercury{background:radial-gradient(circle at 32% 25%,#ddd5c6,#958e86 43%,#4c4b57 100%);--glow:#b7a9a0}
+.venus{background:radial-gradient(circle at 30% 25%,#ffe0a0,#d59b5d 45%,#77482e);--glow:#e2ad75}
+.earth{background:radial-gradient(circle at 30% 25%,#b9efff 0,#227bd0 42%,#071f63 100%);overflow:hidden;--glow:#58baff}
+.earth:before{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(ellipse at 35% 28%,#91c96d 0 14%,transparent 15%),radial-gradient(ellipse at 58% 43%,#6ebd67 0 18%,transparent 19%),radial-gradient(ellipse at 34% 68%,#83bd63 0 12%,transparent 13%),radial-gradient(ellipse at 77% 73%,#6cb95f 0 9%,transparent 10%);mix-blend-mode:screen}
+.earth:after{content:"";position:absolute;inset:0;border-radius:50%;background:repeating-linear-gradient(155deg,transparent 0 7px,#ffffff99 8px,#ffffff15 10px,transparent 13px);opacity:.35}
+.mars{background:radial-gradient(circle at 30% 25%,#ffb18a,#d65337 52%,#70251f);--glow:#e45e3b}
+.jupiter{background:repeating-linear-gradient(0deg,#c49a73 0 4px,#e9d0a7 4px 8px,#9a6a52 8px 11px);box-shadow:inset -7px -4px 9px #0009;--glow:#d8ad80}
+.saturn{background:repeating-linear-gradient(0deg,#f3dfad 0 4px,#c4a16d 4px 7px,#e6c993 7px 10px);--glow:#dfc48b}
+.saturn-ring{position:absolute;width:calc(var(--size)*1.85);height:calc(var(--size)*.56);border:3px solid #e6d4a1;border-left-color:#9c885d;border-right-color:#f7e6ba;border-radius:50%;transform:rotate(-22deg);pointer-events:none}
+.uranus{background:radial-gradient(circle at 30% 25%,#c6ffff,#72d2db 55%,#337c9d);--glow:#7fe4ee}
+.neptune{background:radial-gradient(circle at 30% 25%,#80aaff,#2858d5 55%,#10256f);--glow:#426eff}
+#map-caption{position:absolute;z-index:4;left:clamp(18px,3vw,44px);bottom:20px;color:#9692aa;font-size:10px;line-height:1.9;letter-spacing:.08em}
+#map-caption strong{display:block;color:#b9a2ff;font-weight:400;letter-spacing:.24em;margin-bottom:5px}
+#zoom-controls{position:absolute;z-index:6;right:clamp(14px,2vw,28px);bottom:20px;display:flex;align-items:center;gap:7px;background:#090914d9;border:1px solid #b9a2ff35;padding:7px;backdrop-filter:blur(8px)}
+.zoom-btn{width:38px;height:36px;background:#121020;border:1px solid #b9a2ff44;cursor:pointer;font-size:18px}
+#zoom-level{font-size:9px;color:#bdb7d0;min-width:46px;text-align:center}
+#music{position:relative;z-index:8;display:flex;align-items:center;gap:12px;padding:15px clamp(18px,3vw,44px);background:#080812;border-top:1px solid #b9a2ff25;border-bottom:1px solid #b9a2ff1c}
+.music-note{color:var(--violet);font-size:13px}
+#track-title{font-size:11px;color:#c4bfd7;letter-spacing:.05em;margin-right:auto}
+.music-button{background:#100f1d;border:1px solid #b9a2ff50;padding:10px 13px;cursor:pointer;font-size:11px;min-width:44px}
+#planet-info{display:none;position:fixed;inset:0;z-index:70;background:#02020be8;backdrop-filter:blur(12px);padding:22px;align-items:center;justify-content:center}
+#planet-info.open{display:flex}
+.info-panel{position:relative;width:min(740px,100%);max-height:90svh;overflow:auto;border:1px solid #b9a2ff44;background:linear-gradient(145deg,#141224f5,#07070ff5);padding:clamp(22px,4vw,42px);box-shadow:0 0 80px #000a}
+.info-close{position:absolute;right:15px;top:15px;width:40px;height:40px;border:1px solid #b9a2ff44;background:#0b0a15;cursor:pointer;font-size:20px}
+.info-kicker{color:var(--violet);font-size:10px;letter-spacing:.3em}
+.info-title{font:500 clamp(28px,6vw,52px)/1.1 Orbitron,sans-serif;margin:15px 0}
+.info-lede{color:#c8c4d9;line-height:1.8;font-size:13px;max-width:620px}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:24px 0}
+.fact{border:1px solid #b9a2ff24;background:#090912;padding:14px}
+.fact small{display:block;color:#8f89a8;font-size:9px;letter-spacing:.1em;margin-bottom:8px}
+.fact strong{font:500 clamp(15px,2vw,21px) Orbitron,sans-serif}
+.info-extra{color:#a9a4be;font-size:12px;line-height:1.8}
+#ending{text-align:center;padding:70px 22px 78px;border-top:1px solid #b9a2ff1a;background:radial-gradient(ellipse at center,#111020 0,#05050b 65%)}
+#ending .kicker{margin-bottom:24px}
+#ending h2{font:500 clamp(22px,5vw,46px)/1.45 Orbitron,sans-serif;letter-spacing:.03em;margin:0 auto 18px;max-width:950px}
+#ending h2 span{color:var(--violet)}
+#ending p{font-size:10px;color:#77738d;letter-spacing:.2em}
+footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px clamp(18px,3vw,44px);font-size:9px;letter-spacing:.12em;color:#656178;background:#030309}
+#explosion{position:fixed;inset:0;z-index:60;background:#fff;opacity:0;pointer-events:none}
+#explosion.go{animation:boom 2.8s ease-out forwards}
+@keyframes boom{0%{opacity:0;background:#fff}10%{opacity:1;background:#fff9cf}30%{opacity:.98;background:#ffb15d}55%{opacity:.85;background:#e9e6ff}100%{opacity:0;background:#03040a}}
+@media(min-width:1000px){
+ #system-viewport{width:min(94vmin,calc(100svh - 55px));height:min(94vmin,calc(100svh - 55px));transform:translateY(0)}
+ #hero-heading h2{font-size:clamp(25px,2.6vw,38px)}
+ .planet-label{font-size:12px}
+}
+@media(max-width:600px){
+ header{height:55px}.logo{font-size:17px}.status{font-size:8px}
+ #hero{height:calc(100svh - 55px);min-height:620px}
+ #hero-heading{top:18px;left:18px}
+ #hero-heading h2{font-size:20px}
+ #hero-heading p{max-width:260px;font-size:10px}
+ #system-viewport{width:min(100vw,calc(100svh - 120px));height:min(100vw,calc(100svh - 120px));transform:translateY(10px)}
+ #system{transform:translate(-50%,-50%) scale(var(--sys-scale,.52))}
+ #map-caption{bottom:12px;left:18px;font-size:9px;max-width:55%}
+ #zoom-controls{right:12px;bottom:12px;gap:4px;padding:5px}
+ .zoom-btn{width:33px;height:32px}
+ #zoom-level{min-width:35px;font-size:8px}
+ #music{gap:8px;padding:12px 16px}
+ #track-title{font-size:9px;line-height:1.6}
+ .music-button{padding:9px 10px;min-width:38px}
+ .facts{grid-template-columns:1fr 1fr}
+ .fact:last-child{grid-column:1/-1}
+ #planet-info{padding:10px}
+ .info-panel{padding:24px 18px}
+ #ending{padding:55px 18px}
+}
+@media(max-width:380px){#system-viewport{width:100vw;height:100vw}#system{transform:translate(-50%,-50%) scale(var(--sys-scale,.48))}#hero-heading p{max-width:220px}.planet-label{font-size:9px}}
+
+/* Immersive mode: CSS-only toggle, no slow native fullscreen transition. */
+#fullscreen-toggle{font-size:20px;min-width:42px}
+#hero.immersive{position:fixed;inset:0;z-index:40;width:100vw;height:100vh;height:100svh;min-height:0;overflow:hidden;background:#010107}
+body.immersive-on{overflow:hidden;height:100%;overscroll-behavior:none}
+body.immersive-on header,
+body.immersive-on #hero-heading,
+body.immersive-on #map-caption,
+body.immersive-on #music,
+body.immersive-on #ending,
+body.immersive-on footer{display:none!important}
+#hero.immersive #system-stage{position:absolute;inset:0;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
+#hero.immersive #system-viewport{width:min(100vmin,100vw,100svh);height:min(100vmin,100vw,100svh);max-width:none;max-height:none;transform:scale(var(--immersive-zoom,1));transition:transform .12s ease-out;touch-action:none}
+#hero.immersive #system{transform:translate(-50%,-50%) scale(var(--sys-scale,.65))}
+#hero.immersive #zoom-controls{position:fixed;right:18px;bottom:18px;z-index:45;padding:9px;background:#080812eF;border-color:#c7b5ff55}
+#hero.immersive #fullscreen-toggle{border-color:#c7b5ff99;background:#211b37}
+#hero.immersive #zoom-controls .zoom-btn{width:44px;height:42px}
+#hero.immersive #zoom-level{min-width:50px}
+#hero.immersive #starfield{position:absolute}
+#hero.immersive #system-viewport{touch-action:none}
+@media(max-width:600px){
+ #hero.immersive #system-viewport{width:min(100vw,100svh);height:min(100vw,100svh)}
+ #hero.immersive #zoom-controls{right:10px;bottom:10px;gap:4px;padding:5px}
+ #hero.immersive #zoom-controls .zoom-btn{width:36px;height:36px}
+}
+#explosion{position:fixed;inset:0;z-index:80;opacity:0;visibility:hidden;pointer-events:none;overflow:hidden;background:#02020a}
+#blast-canvas{position:absolute;inset:0;width:100%;height:100%}
+.blast-message{position:absolute;left:20px;right:20px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;opacity:0;color:#fff;text-shadow:0 0 25px #ff9e43}
+.blast-message span{font:10px "Space Mono",monospace;letter-spacing:.35em;color:#ffd9a3}
+.blast-message strong{font:500 clamp(24px,5vw,60px)/1.15 Orbitron,sans-serif;letter-spacing:.08em}
+.blast-message small{font:10px "Space Mono",monospace;letter-spacing:.2em;color:#e9d8ff}
+#explosion.go{visibility:visible;animation:blast-background 4.8s ease-out forwards}
+#explosion.go .blast-message{animation:blast-message 4.8s ease-out forwards}
+@keyframes blast-background{
+  0%{opacity:0;background:#02020a}
+  5%{opacity:1;background:#fff8dc}
+  12%{opacity:1;background:#ffca7a}
+  24%{opacity:1;background:#e8c1ff}
+  45%{opacity:.98;background:#171025}
+  72%{opacity:.95;background:#03030a}
+  100%{opacity:0;background:#02020a}
+}
+@keyframes blast-message{
+  0%,24%{opacity:0;transform:translateY(-42%) scale(.85);filter:blur(10px)}
+  38%{opacity:1;transform:translateY(-50%) scale(1);filter:blur(0)}
+  72%{opacity:1}
+  100%{opacity:0;filter:blur(5px)}
+}
+#system.blast-hit{animation:system-evaporate 2.5s ease-in forwards}
+@keyframes system-evaporate{
+  0%{filter:brightness(1);opacity:1}
+  12%{filter:brightness(5) saturate(0);opacity:1}
+  55%{filter:brightness(2) blur(4px);opacity:.35;transform:translate(-50%,-50%) scale(calc(var(--sys-scale,.65)*1.12))}
+  100%{filter:brightness(0) blur(18px);opacity:0}
+}
+#sun.blast-hit .sun-core{animation:sun-supernova .9s ease-in forwards}
+@keyframes sun-supernova{
+  0%{transform:scale(1);filter:brightness(1)}
+  25%{transform:scale(2.6);filter:brightness(4)}
+  100%{transform:scale(0);filter:brightness(8);opacity:0}
+}
+@media(max-width:600px){
+ #hero.immersive #system-viewport{width:100vw;height:100vw}
+ #hero.immersive #zoom-controls{right:10px;bottom:10px;gap:4px;padding:5px}
+ #hero.immersive #zoom-controls .zoom-btn{width:36px;height:36px}
+}
+
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div id="intro">
+ <div class="intro-card">
+  <div class="kicker">// transmission received · sol system</div>
+  <h1>ORBITAL</h1>
+  <p>Are you sure? You might witness peak that you won't be able to forget..</p>
+  <p>Eight planets. One star. An unreasonable amount of space.</p>
+  <div class="intro-actions"><button class="action" id="no-btn">NO, I'M GOOD</button><button class="action primary" id="yes-btn">YES. SHOW ME.</button></div>
+ </div>
+</div>
+<div id="site">
+ <header><div class="logo">ORBIT<span>AL</span></div><div class="status"><i class="dot"></i>SYSTEM ONLINE</div></header>
+ <main>
+  <section id="hero" aria-label="Interactive solar system">
+   <canvas id="starfield"></canvas>
+   <div id="hero-heading"><div class="kicker">// deep space explorer</div><h2>THE SOLAR SYSTEM</h2><p>Eight planets. One star. Tap a planet to explore it. Zoom in and drift around.</p></div>
+   <div id="system-stage">
+    <div id="system-viewport">
+     <div id="system" aria-label="Solar system map">
+      <div class="orbit" style="width:136px;height:136px"></div>
+      <div class="orbit" style="width:216px;height:216px"></div>
+      <div class="orbit" style="width:300px;height:300px"></div>
+      <div class="orbit" style="width:400px;height:400px"></div>
+      <div class="orbit" style="width:510px;height:510px"></div>
+      <div class="orbit" style="width:630px;height:630px"></div>
+      <div class="orbit" style="width:740px;height:740px"></div>
+      <div class="orbit" style="width:820px;height:820px"></div>
+      <button id="sun" aria-label="Sun. Tap eleven times for a surprise"><span class="sun-glow"></span><span class="sun-core"></span><span class="sun-label">SUN</span></button>
+     </div>
+    </div>
+   </div>
+   <div id="map-caption"><strong>LIVE VIEW / SOL-01</strong><span>SELECT A PLANET TO OPEN ITS FIELD NOTES</span><br><span>THE SUN HAS A SECRET. TAP IT 11 TIMES.</span></div>
+   <div id="zoom-controls">
+    <button class="zoom-btn" id="zoom-out" aria-label="Zoom out">−</button>
+    <span id="zoom-level">1.0×</span>
+    <button class="zoom-btn" id="zoom-in" aria-label="Zoom in">+</button>
+    <button class="zoom-btn" id="zoom-reset" aria-label="Reset zoom">↺</button>
+    <button class="zoom-btn fullscreen-btn" id="fullscreen-toggle" aria-label="Enter system-only fullscreen" title="System only / fullscreen">⛶</button>
+   </div>
+  </section>
+  <section id="music" aria-label="Music controls"><span class="music-note">♫</span><span id="track-title">CORNFIELDS CHASE — HANS ZIMMER</span><button class="music-button" id="play-btn" aria-label="Pause music">Ⅱ PAUSE</button><button class="music-button" id="mute-btn" aria-label="Mute music">♫ SOUND</button></section>
+  <section id="ending"><div class="kicker">// a message from somewhere far away</div><h2>Don't let me leave, <span>Murph!</span><br>Don't let me leave!!!</h2><p>— INTERSTELLAR · END OF TRANSMISSION —</p></section>
+ </main>
+ <footer><span>ORBITAL EXPLORATION PROGRAM © 2026</span><span>WE ARE ALL MADE OF STAR STUFF.</span></footer>
+</div>
+<div id="planet-info" role="dialog" aria-modal="true" aria-labelledby="info-title">
+ <div class="info-panel"><button class="info-close" id="info-close" aria-label="Close planet information">×</button><div class="info-kicker" id="info-type">FIELD NOTES / SOL-01</div><h2 class="info-title" id="info-title">EARTH</h2><p class="info-lede" id="info-desc"></p><div class="facts"><div class="fact"><small>MEAN DIAMETER</small><strong id="info-diameter"></strong></div><div class="fact"><small>ORBITAL PERIOD</small><strong id="info-year"></strong></div><div class="fact"><small>KNOWN MOONS</small><strong id="info-moons"></strong></div></div><p class="info-extra" id="info-extra"></p></div>
+</div>
+<div id="explosion" aria-hidden="true">
+ <canvas id="blast-canvas"></canvas>
+ <div class="blast-message"><span>STELLAR EVENT DETECTED</span><strong>THE SUN HAS GONE NOVA</strong><small>ALL ORBITS LOST · SIGNAL TERMINATED</small></div>
+</div>
+<audio id="background-music" src="music.mp3" preload="auto" loop></audio>
+<audio id="supernova-sfx" src="allahu.mp3" preload="auto"></audio>
+<script>
+const planetData=[
+{id:"mercury",name:"MERCURY",type:"TERRESTRIAL PLANET",radius:68,size:13,period:88,moons:0,diameter:"4,879 km",year:"88 days",start:12,duration:9,delay:"-1s",desc:"The smallest planet and the closest world to the Sun. Mercury has a heavily cratered surface, almost no atmosphere to hold heat, and some of the most extreme temperature swings in the Solar System.",extra:"A day-night cycle on Mercury is surprisingly long: one solar day lasts about 176 Earth days. Despite being closest to the Sun, it is not the hottest planet."},
+{id:"venus",name:"VENUS",type:"TERRESTRIAL PLANET",radius:108,size:17,period:225,moons:0,diameter:"12,104 km",year:"225 days",start:70,duration:15,delay:"-3s",desc:"A rocky planet wrapped in thick clouds of carbon dioxide. A powerful greenhouse effect makes Venus the hottest planet in the Solar System.",extra:"Venus rotates backwards compared with most planets. Its dense atmosphere hides the surface from ordinary visible-light views."},
+{id:"earth",name:"EARTH",type:"TERRESTRIAL PLANET",radius:150,size:20,period:365,moons:1,diameter:"12,742 km",year:"365.25 days",start:205,duration:22,delay:"-8s",desc:"Our home: a water-rich rocky planet with a protective atmosphere, a magnetic field, and the only confirmed life we know of. Blue oceans, continents, clouds and polar ice make Earth a living world.",extra:"Earth has one natural moon. The Moon helps stabilise Earth's axial tilt and drives much of the ocean's tides."},
+{id:"mars",name:"MARS",type:"TERRESTRIAL PLANET",radius:200,size:16,period:687,moons:2,diameter:"6,779 km",year:"687 days",start:300,duration:32,delay:"-14s",desc:"The red planet: a cold desert world with giant volcanoes, ancient river channels, polar ice and a thin carbon-dioxide atmosphere.",extra:"Mars has two small moons, Phobos and Deimos. Robotic explorers search for evidence that ancient Mars may once have been more habitable."},
+{id:"jupiter",name:"JUPITER",type:"GAS GIANT",radius:255,size:31,period:4333,moons:101,diameter:"139,820 km",year:"11.86 years",start:160,duration:48,delay:"-22s",desc:"The Solar System's largest planet. Jupiter's colourful cloud bands are driven by powerful winds, and its Great Red Spot is a giant storm that has lasted for centuries.",extra:"Jupiter has a large family of confirmed moons, including Ganymede, the largest moon in the Solar System. Moon counts can change as new small moons are confirmed."},
+{id:"saturn",name:"SATURN",type:"GAS GIANT",radius:315,size:27,period:10759,moons:285,diameter:"116,460 km",year:"29.4 years",start:250,duration:62,delay:"-32s",desc:"A gas giant famous for its broad, bright rings, made mostly of countless pieces of water ice and rocky debris.",extra:"Saturn has a large collection of confirmed moons, including Titan, which has lakes and seas of liquid hydrocarbons, and Enceladus, which sprays water-rich plumes into space. Counts may change with new discoveries."},
+{id:"uranus",name:"URANUS",type:"ICE GIANT",radius:370,size:22,period:30687,moons:29,diameter:"50,724 km",year:"84 years",start:28,duration:78,delay:"-44s",desc:"A pale cyan ice giant whose atmosphere contains hydrogen, helium and methane. Uranus rotates tipped dramatically onto its side.",extra:"Its extreme axial tilt gives Uranus unusual seasons that last for decades. It has faint rings and a system of known moons."},
+{id:"neptune",name:"NEPTUNE",type:"ICE GIANT",radius:410,size:22,period:60190,moons:16,diameter:"49,244 km",year:"165 years",start:110,duration:95,delay:"-57s",desc:"A distant blue ice giant with supersonic winds and a dynamic atmosphere. Neptune takes roughly 165 Earth years to complete one orbit around the Sun.",extra:"Neptune's largest moon, Triton, travels in a retrograde orbit and may be a captured object from the outer Solar System."}
+];
+const system=document.getElementById("system"), sysViewport=document.getElementById("system-viewport");
+const ns="http://www.w3.org/2000/svg";
+planetData.forEach(p=>{
+ const orbitBody=document.createElement("div");orbitBody.className="orbit-body";orbitBody.style.setProperty("--start",p.start+"deg");orbitBody.style.setProperty("--delay",p.delay);orbitBody.style.animationDuration=p.duration+"s";
+ const button=document.createElement("button");button.className="planet-button";button.style.setProperty("--radius",p.radius+"px");button.setAttribute("aria-label","Explore "+p.name);button.title="Explore "+p.name;
+ const body=document.createElement("span");body.className="planet "+p.id;body.style.setProperty("--size",p.size+"px");
+ if(p.id==="saturn"){const ring=document.createElement("span");ring.className="saturn-ring";ring.style.setProperty("--size",p.size+"px");button.appendChild(ring)}
+ button.appendChild(body);
+ const label=document.createElement("span");label.className="planet-label";label.textContent=p.name;label.style.setProperty("--label-gap",Math.max(22,p.size/2+13)+"px");button.appendChild(label);
+ button.addEventListener("click",()=>openInfo(p));orbitBody.appendChild(button);system.appendChild(orbitBody);
+});
+const info=document.getElementById("planet-info");
+function openInfo(p){document.getElementById("info-type").textContent="FIELD NOTES / "+p.type;document.getElementById("info-title").textContent=p.name;document.getElementById("info-desc").textContent=p.desc;document.getElementById("info-diameter").textContent=p.diameter;document.getElementById("info-year").textContent=p.year;document.getElementById("info-moons").textContent=p.moons;document.getElementById("info-extra").textContent=p.extra;info.classList.add("open")}
+function closeInfo(){info.classList.remove("open")}
+document.getElementById("info-close").addEventListener("click",closeInfo);info.addEventListener("click",e=>{if(e.target===info)closeInfo()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInfo()});
+let zoom=1;
+const hero=document.getElementById("hero");
+const fullBtn=document.getElementById("fullscreen-toggle");
+function fitSystem(){
+ const w=sysViewport.clientWidth||window.innerWidth;
+ const h=sysViewport.clientHeight||window.innerHeight;
+ // The outer orbit is 868px across; reserve room for labels and tap targets.
+ const fit=Math.min(w,h)/960;
+ system.style.setProperty("--sys-scale",Math.max(.25,Math.min(.96,fit*.97)));
+}
+function setZoom(next){
+ zoom=Math.max(.65,Math.min(3.2,next));
+ if(hero.classList.contains("immersive"))sysViewport.style.setProperty("--immersive-zoom",zoom);
+ else sysViewport.style.setProperty("--view-zoom",zoom);
+ document.getElementById("zoom-level").textContent=zoom.toFixed(1)+"×";
+}
+function toggleImmersive(force){
+ const entering=typeof force==="boolean"?force:!hero.classList.contains("immersive");
+ if(entering){
+  hero.classList.add("immersive");document.body.classList.add("immersive-on");
+  sysViewport.style.setProperty("--immersive-zoom",zoom);
+  fullBtn.textContent="×";fullBtn.setAttribute("aria-label","Exit system-only fullscreen");fullBtn.title="Exit fullscreen";
+ }else{
+  hero.classList.remove("immersive");document.body.classList.remove("immersive-on");
+  sysViewport.style.removeProperty("--immersive-zoom");
+  fullBtn.textContent="⛶";fullBtn.setAttribute("aria-label","Enter system-only fullscreen");fullBtn.title="System only / fullscreen";
+  sysViewport.style.setProperty("--view-zoom",zoom);
+ }
+ requestAnimationFrame(fitSystem);
+}
+fullBtn.addEventListener("click",()=>toggleImmersive());
+document.getElementById("zoom-in").addEventListener("click",()=>setZoom(zoom+.2));
+document.getElementById("zoom-out").addEventListener("click",()=>setZoom(zoom-.2));
+document.getElementById("zoom-reset").addEventListener("click",()=>setZoom(1));
+const fitObserver=new ResizeObserver(()=>fitSystem());fitObserver.observe(sysViewport);
+window.addEventListener("resize",fitSystem);
+requestAnimationFrame(fitSystem);
+sysViewport.addEventListener("wheel",e=>{if(e.ctrlKey){e.preventDefault();setZoom(zoom+(e.deltaY<0?.1:-.1))}},{passive:false});
+let pinchStart=0,pinchZoom=1;
+sysViewport.addEventListener("touchstart",e=>{if(e.touches.length===2){pinchStart=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);pinchZoom=zoom}},{passive:true});
+sysViewport.addEventListener("touchmove",e=>{if(e.touches.length===2&&pinchStart){e.preventDefault();let d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);setZoom(pinchZoom*d/pinchStart)}},{passive:false});
+let sunTaps=0,sunResetTimer,blastFrame=0;
+const sunButton=document.getElementById("sun"),explosion=document.getElementById("explosion"),blastCanvas=document.getElementById("blast-canvas"),blastCtx=blastCanvas.getContext("2d");
+function runSupernova(){
+ const dpr=Math.min(window.devicePixelRatio||1,2),w=window.innerWidth,h=window.innerHeight;
+ blastCanvas.width=w*dpr;blastCanvas.height=h*dpr;blastCtx.setTransform(dpr,0,0,dpr,0,0);
+ const cx=w/2,cy=h/2,particles=[];
+ for(let i=0;i<240;i++){
+  const a=Math.random()*Math.PI*2,speed=1.5+Math.random()*10;
+  particles.push({x:cx,y:cy,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:1+Math.random()*3.5,life:.45+Math.random()*.55,hue:Math.random()<.65?Math.random()*35:245+Math.random()*45});
+ }
+ const started=performance.now();
+ cancelAnimationFrame(blastFrame);
+ function frame(now){
+  const t=Math.min(1,(now-started)/4300);
+  blastCtx.clearRect(0,0,w,h);
+  const radius=20+t*Math.max(w,h)*.9;
+  const glow=blastCtx.createRadialGradient(cx,cy,0,cx,cy,Math.max(10,radius));
+  glow.addColorStop(0,`rgba(255,255,230,${Math.max(0,1-t*2.3)})`);
+  glow.addColorStop(.12,`rgba(255,173,80,${Math.max(0,.95-t)})`);
+  glow.addColorStop(.34,`rgba(188,143,255,${Math.max(0,.55-t*.7)})`);
+  glow.addColorStop(1,"rgba(4,3,15,0)");
+  blastCtx.fillStyle=glow;blastCtx.fillRect(0,0,w,h);
+  blastCtx.beginPath();blastCtx.arc(cx,cy,radius,0,Math.PI*2);blastCtx.strokeStyle=`rgba(255,226,171,${Math.max(0,.9-t)})`;blastCtx.lineWidth=2+18*(1-t);blastCtx.stroke();
+  for(const q of particles){
+   q.x+=q.vx*(.6+t*2);q.y+=q.vy*(.6+t*2);q.life-=.004;
+   blastCtx.globalAlpha=Math.max(0,q.life)*(1-t*.45);blastCtx.fillStyle=`hsl(${q.hue} 100% ${65+Math.random()*25}%)`;
+   blastCtx.shadowBlur=12;blastCtx.shadowColor=blastCtx.fillStyle;blastCtx.beginPath();blastCtx.arc(q.x,q.y,q.r*(1+t),0,Math.PI*2);blastCtx.fill();
+  }
+  blastCtx.globalAlpha=1;blastCtx.shadowBlur=0;
+  if(t<1)blastFrame=requestAnimationFrame(frame);
+ }
+ blastFrame=requestAnimationFrame(frame);
+}
+sunButton.addEventListener("click",()=>{
+ sunTaps++;clearTimeout(sunResetTimer);
+ document.querySelector(".sun-core").style.transform=`scale(${1+Math.min(sunTaps,10)*.07})`;
+ if(sunTaps>=11){
+  sunTaps=0;document.querySelector(".sun-core").style.transform="";
+  const supernovaSfx=document.getElementById("supernova-sfx");
+  try{supernovaSfx.pause();supernovaSfx.currentTime=0;supernovaSfx.play().catch(()=>{});}catch(e){}
+  // Let the warning sound land just before the visual detonation.
+  setTimeout(()=>{
+   explosion.classList.remove("go");system.classList.remove("blast-hit");sunButton.classList.remove("blast-hit");
+   void explosion.offsetWidth;
+   explosion.classList.add("go");system.classList.add("blast-hit");sunButton.classList.add("blast-hit");
+   document.querySelectorAll(".orbit-body").forEach(x=>x.style.animationPlayState="paused");
+   runSupernova();
+   setTimeout(()=>{
+    explosion.classList.remove("go");system.classList.remove("blast-hit");sunButton.classList.remove("blast-hit");
+    document.querySelectorAll(".orbit-body").forEach(x=>x.style.animationPlayState="running");
+    blastCtx.clearRect(0,0,blastCanvas.width,blastCanvas.height);
+   },4900);
+  },700);
+ }else sunResetTimer=setTimeout(()=>{sunTaps=0;document.querySelector(".sun-core").style.transform=""},3500);
+});
+const audio=document.getElementById("background-music"),playBtn=document.getElementById("play-btn"),muteBtn=document.getElementById("mute-btn");
+playBtn.addEventListener("click",async()=>{if(audio.paused){try{await audio.play();playBtn.textContent="Ⅱ PAUSE";playBtn.setAttribute("aria-label","Pause music")}catch(e){playBtn.textContent="▶ PLAY"}}else{audio.pause();playBtn.textContent="▶ PLAY";playBtn.setAttribute("aria-label","Play music")}});
+muteBtn.addEventListener("click",()=>{audio.muted=!audio.muted;muteBtn.textContent=audio.muted?"♪ MUTED":"♫ SOUND";muteBtn.setAttribute("aria-label",audio.muted?"Unmute music":"Mute music")});
+document.getElementById("yes-btn").addEventListener("click",async()=>{document.getElementById("intro").classList.add("hidden");document.getElementById("site").classList.add("ready");try{await audio.play()}catch(e){playBtn.textContent="▶ PLAY"}});
+document.getElementById("no-btn").addEventListener("click",()=>{document.querySelector("#intro-card");document.querySelector("#intro p").textContent="Fair. The universe will still be here if you change your mind."});
+/* Starfield: deterministic-looking points, redrawn at screen size. */
+const canvas=document.getElementById("starfield"),ctx=canvas.getContext("2d");let stars=[];
+function drawStars(){const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.floor(canvas.clientWidth*dpr);canvas.height=Math.floor(canvas.clientHeight*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);stars=[];let count=Math.min(330,Math.floor(canvas.clientWidth*canvas.clientHeight/2600));for(let i=0;i<count;i++){let x=Math.random()*canvas.clientWidth,y=Math.random()*canvas.clientHeight,r=Math.random()*1.3+.15,a=Math.random()*.65+.12;stars.push({x,y,r,a,phase:Math.random()*6})}paintStars()}
+function paintStars(){ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);const t=performance.now()/1500;for(const s of stars){ctx.globalAlpha=s.a*(.75+.25*Math.sin(t+s.phase));ctx.fillStyle="#e7e5ff";ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;requestAnimationFrame(paintStars)}
+window.addEventListener("resize",drawStars);drawStars();
+</script>
+</body>
+</html>
